@@ -128,7 +128,18 @@ check_allowed_headers([Header|Tail], Allowed, Req, State) ->
 
 set_preflight_headers(Req, State) ->
     {Req1, State1} = allow_credentials(Req, State),
-    set_allow_methods(Req1, State1).
+    set_max_age(Req1, State1).
+
+set_max_age(Req, State) ->
+    case call(Req, State, max_age, undefined) of
+        {undefined, Req1, PolicyState} ->
+            set_allow_methods(Req1, State#state{policy_state = PolicyState});
+        {MaxAge, Req1, PolicyState}
+          when is_integer(MaxAge) andalso MaxAge > 0 ->
+            MaxAgeBin = list_to_binary(integer_to_list(MaxAge)),
+            Req2 = cowboy_req:set_resp_header(<<"access-control-max-age">>, MaxAgeBin, Req1),
+            set_allow_methods(Req2, State#state{policy_state = PolicyState})
+    end.
 
 set_allow_methods(Req, State = #state{request_method = Method}) ->
     Req1 = cowboy_req:set_resp_header(<<"access-control-allow-methods">>, Method, Req),
